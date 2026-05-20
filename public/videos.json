@@ -1,14 +1,14 @@
 [
   {
-    "label": "Big Buck Bunny",
-    "url": "https://alarm-com-develop.go-vip.net/latam/wp-content/uploads/sites/15/2025/06/INT-Website-MASTER_slide-transitions.mp4"
+    "label": "Intro Video",
+    "url": "/videos/intro.mp4"
   },
   {
-    "label": "Sintel",
-    "url": "https://alarm-com-develop.go-vip.net/latam/wp-content/uploads/sites/15/2025/05/ADC_MKTG_HomePageLoop_240726.mp4"
+    "label": "Product Video",
+    "url": "/videos/product.mp4"
   },
   {
-    "label": "Tears of Steel",
-    "url": "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/TearsOfSteel.mp4"
+    "label": "Closing Video",
+    "url": "/videos/closing.mp4"
   }
 ]
