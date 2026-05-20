@@ -1,16 +1,10 @@
 {
-  "name": "ipad-video-controller-online",
-  "version": "1.0.0",
-  "description": "Hosted iPad controller and fullscreen video player for a second display",
-  "main": "server.js",
-  "scripts": {
-    "start": "node server.js"
-  },
+  "name": "ipad-video-controller-vercel",
+  "version": "2.0.0",
+  "private": true,
+  "description": "Vercel-hosted iPad video controller and fullscreen laptop player",
+  "scripts": {},
   "engines": {
     "node": ">=18"
-  },
-  "dependencies": {
-    "express": "^4.18.3",
-    "socket.io": "^4.7.5"
   }
 }

@@ -4,6 +4,7 @@
   <meta charset="utf-8" />
   <title>iPad Video Controller</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
+
   <style>
     :root {
       --bg: #111111;
@@ -11,12 +12,16 @@
       --button: #2f80ed;
       --button-dark: #444444;
       --danger: #c0392b;
+      --success: #27ae60;
       --text: #ffffff;
       --muted: #bbbbbb;
+      --good: #8ee59f;
+      --bad: #ffb3b3;
     }
 
     * {
       box-sizing: border-box;
+      -webkit-tap-highlight-color: transparent;
     }
 
     body {
@@ -25,6 +30,7 @@
       background: var(--bg);
       color: var(--text);
       padding: 24px;
+      user-select: none;
     }
 
     header {
@@ -40,7 +46,12 @@
     .status {
       color: var(--muted);
       font-size: 16px;
+      line-height: 1.4;
+      min-height: 22px;
     }
+
+    .status.good { color: var(--good); }
+    .status.bad { color: var(--bad); }
 
     .grid {
       max-width: 1000px;
@@ -61,15 +72,15 @@
       cursor: pointer;
       min-height: 96px;
       box-shadow: 0 8px 20px rgba(0,0,0,0.25);
+      touch-action: manipulation;
     }
 
-    button:active {
-      transform: scale(0.98);
-    }
+    button:active { transform: scale(0.98); }
 
     button:disabled {
       opacity: 0.45;
       cursor: not-allowed;
+      transform: none;
     }
 
     .controls {
@@ -92,6 +103,21 @@
       min-height: 76px;
     }
 
+    .smallControls {
+      max-width: 1000px;
+      margin: 16px auto 0 auto;
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 12px;
+    }
+
+    .reload {
+      background: var(--success);
+      font-size: 18px;
+      min-height: 66px;
+      padding: 18px 16px;
+    }
+
     .help {
       max-width: 1000px;
       margin: 24px auto 0 auto;
@@ -104,64 +130,68 @@
     }
 
     @media (max-width: 700px) {
-      body {
-        padding: 16px;
-      }
-
-      .grid,
-      .controls {
-        grid-template-columns: 1fr;
-      }
-
-      button {
-        font-size: 22px;
-      }
+      body { padding: 16px; }
+      .grid, .controls { grid-template-columns: 1fr; }
+      button { font-size: 22px; }
     }
   </style>
 </head>
+
 <body>
   <header>
     <h1>Video Controller</h1>
-    <div class="status" id="status">Loading video buttons...</div>
+    <div class="status" id="status">Loading controller...</div>
   </header>
 
   <main>
     <section class="grid" id="videoButtons"></section>
 
     <section class="controls">
-      <button class="secondary" type="button" onclick="pauseVideo()">Pause</button>
-      <button class="secondary" type="button" onclick="resumeVideo()">Resume</button>
-      <button class="secondary" type="button" onclick="resetVideo()">Reset</button>
-      <button class="danger" type="button" onclick="blankScreen()">Blank Screen</button>
+      <button class="secondary commandButton" type="button" onclick="sendCommand('pause')">Pause</button>
+      <button class="secondary commandButton" type="button" onclick="sendCommand('resume')">Resume</button>
+      <button class="secondary commandButton" type="button" onclick="sendCommand('reset')">Reset</button>
+      <button class="danger commandButton" type="button" onclick="sendCommand('blank')">Blank Screen</button>
+    </section>
+
+    <section class="smallControls">
+      <button class="reload" type="button" onclick="loadVideos()">Reload Video Buttons</button>
     </section>
 
     <section class="help">
-      Open <strong>player.html</strong> on the laptop screen. Open this page on the iPad.
-      Buttons are loaded from <strong>videos.json</strong>.
+      Open <strong>player.html</strong> on the laptop screen. Open <strong>controller.html</strong> on the iPad.
+      <br><br>
+      Both pages must use the same Vercel website URL. Click the laptop player once before starting.
     </section>
   </main>
 
-  <script src="/socket.io/socket.io.js"></script>
   <script>
-    const socket = io();
     const videoButtons = document.getElementById("videoButtons");
     const statusEl = document.getElementById("status");
 
-    socket.on("connect", () => {
-      statusEl.textContent = "Connected. Loading video buttons...";
-      loadVideos();
-    });
+    let isSending = false;
 
-    socket.on("disconnect", () => {
-      statusEl.textContent = "Disconnected from player server. Check Wi-Fi/server.";
-    });
+    function setStatus(text, mode) {
+      statusEl.textContent = text;
+      statusEl.className = "status";
+      if (mode) statusEl.classList.add(mode);
+    }
+
+    function setCommandButtonsDisabled(disabled) {
+      document.querySelectorAll(".commandButton").forEach((button) => {
+        button.disabled = disabled;
+      });
+    }
 
     async function loadVideos() {
       try {
-        const response = await fetch("/videos.json", { cache: "no-store" });
+        setStatus("Loading video buttons...");
+
+        const response = await fetch("/videos.json?cacheBust=" + Date.now(), {
+          cache: "no-store"
+        });
 
         if (!response.ok) {
-          throw new Error(`videos.json failed to load. Status: ${response.status}`);
+          throw new Error("videos.json failed to load. Status: " + response.status);
         }
 
         const videos = await response.json();
@@ -174,64 +204,83 @@
 
         videos.forEach((video, index) => {
           if (!video || typeof video !== "object") {
-            console.warn(`Skipping video item ${index}: item is not an object.`);
+            console.warn("Skipping video item " + index + ": item is not an object.");
             return;
           }
 
-          if (!video.label || !video.url) {
-            console.warn(`Skipping video item ${index}: missing label or url.`);
+          if (typeof video.label !== "string" || typeof video.url !== "string" || !video.label || !video.url) {
+            console.warn("Skipping video item " + index + ": missing label or url.");
             return;
           }
 
           const button = document.createElement("button");
+          button.className = "commandButton";
           button.type = "button";
           button.textContent = video.label;
-          button.onclick = () => playVideo(video);
+          button.onclick = () => sendCommand("play", video);
           videoButtons.appendChild(button);
         });
 
         const count = videoButtons.children.length;
 
         if (count === 0) {
-          statusEl.textContent = "No valid videos found in videos.json.";
+          setStatus("No valid videos found. Check videos.json.", "bad");
         } else {
-          statusEl.textContent = `${count} video button(s) ready.`;
+          setStatus(count + " video button(s) ready.", "good");
         }
       } catch (error) {
-        statusEl.textContent = "Could not load videos.json. Check the file formatting.";
         console.error(error);
+        setStatus("Could not load videos.json. Check commas, quotes, label, and url.", "bad");
       }
     }
 
-    function playVideo(video) {
-      if (!video || !video.url) {
-        statusEl.textContent = "Video is missing a URL.";
-        return;
+    async function sendCommand(type, video) {
+      if (isSending) return;
+
+      try {
+        isSending = true;
+        setCommandButtonsDisabled(true);
+        setStatus("Sending command...");
+
+        const response = await fetch("/api/command", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          cache: "no-store",
+          body: JSON.stringify({
+            type,
+            video: video || null
+          })
+        });
+
+        const result = await response.json();
+
+        if (!response.ok || !result.ok) {
+          throw new Error(result.error || "Command failed.");
+        }
+
+        if (type === "play") {
+          setStatus("Playing: " + (video.label || "Untitled video"), "good");
+        } else if (type === "pause") {
+          setStatus("Paused.", "good");
+        } else if (type === "resume") {
+          setStatus("Resumed.", "good");
+        } else if (type === "reset") {
+          setStatus("Reset video to beginning.", "good");
+        } else if (type === "blank") {
+          setStatus("Screen blanked.", "good");
+        } else {
+          setStatus("Command sent.", "good");
+        }
+      } catch (error) {
+        console.error(error);
+        setStatus("Command failed. Refresh both pages and try again.", "bad");
+      } finally {
+        isSending = false;
+        setCommandButtonsDisabled(false);
       }
-
-      socket.emit("playVideo", video);
-      statusEl.textContent = `Playing: ${video.label || "Untitled video"}`;
     }
 
-    function blankScreen() {
-      socket.emit("blankScreen");
-      statusEl.textContent = "Screen blanked.";
-    }
-
-    function pauseVideo() {
-      socket.emit("pauseVideo");
-      statusEl.textContent = "Paused.";
-    }
-
-    function resumeVideo() {
-      socket.emit("resumeVideo");
-      statusEl.textContent = "Resumed.";
-    }
-
-    function resetVideo() {
-      socket.emit("resetVideo");
-      statusEl.textContent = "Reset video to beginning.";
-    }
+    loadVideos();
   </script>
 </body>
 </html>

@@ -1,21 +1,39 @@
-# iPad Video Controller - Online Hosted Version
+# iPad Video Controller - Vercel Hosted Version
 
 This app lets an iPad control video playback on a laptop/second screen.
 
-- iPad opens `/controller.html`
 - Laptop opens `/player.html`
-- Second screen shows only the fullscreen video
+- iPad opens `/controller.html`
 - Buttons are loaded from `public/videos.json`
+- Commands go through `api/command.js`
+- No Socket.IO, local server, Render, or Railway is required
 
 ## Files
 
 ```text
-server.js
-package.json
+api/command.js
 public/controller.html
 public/player.html
 public/videos.json
+package.json
+vercel.json
 ```
+
+## How to use
+
+Open this on the laptop:
+
+```text
+https://your-vercel-site.vercel.app/player.html
+```
+
+Open this on the iPad:
+
+```text
+https://your-vercel-site.vercel.app/controller.html
+```
+
+Click the laptop player screen once before starting. This helps the browser allow playback.
 
 ## Editing the video buttons
 
@@ -42,85 +60,19 @@ Edit the list:
 
 Use direct video links ending in `.mp4` when possible.
 
-## Local test
-
-Install Node.js LTS, then run:
-
-```bash
-npm install
-npm start
-```
-
-Open:
-
-```text
-http://localhost:3000/controller.html
-http://localhost:3000/player.html
-```
-
-## Hosting on GitHub
-
-1. Create a new GitHub repository.
-2. Upload all files from this folder.
-3. Deploy the repository to Render or Railway.
-
-GitHub Pages alone will not work for this app because the app uses WebSockets through Socket.IO.
-
-## Deploying to Render
-
-1. Create a Render account.
-2. Click **New +**.
-3. Choose **Web Service**.
-4. Connect your GitHub repository.
-5. Use these settings:
-
-```text
-Build Command: npm install
-Start Command: npm start
-```
-
-6. Deploy.
-7. Render will give you a public URL.
-
-Use these links:
-
-```text
-https://your-app-name.onrender.com/controller.html
-https://your-app-name.onrender.com/player.html
-```
-
-## Deploying to Railway
-
-1. Create a Railway account.
-2. Click **New Project**.
-3. Choose **Deploy from GitHub repo**.
-4. Select this repository.
-5. Railway should detect Node.js automatically.
-6. Deploy.
-7. Railway will give you a public URL.
-
-Use these links:
-
-```text
-https://your-app-name.up.railway.app/controller.html
-https://your-app-name.up.railway.app/player.html
-```
-
 ## Event setup
 
 1. Open the player link on the laptop.
 2. Move that browser window to the second screen.
 3. Make it fullscreen.
-4. Open the controller link on the iPad.
-5. Tap a button on the iPad.
+4. Click the player screen once.
+5. Open the controller link on the iPad.
+6. Tap a video button on the iPad.
 
 Important: Set the laptop display mode to **Extend**, not **Mirror**.
 
-## Notes for non-technical teams
+## Notes
 
-The team should only need two links:
+This version is designed for GitHub + Vercel hosting. It avoids WebSockets because this project is not using a persistent custom Node server.
 
-- Controller link for the iPad
-- Player link for the laptop
-
-They should not need Terminal after the app is hosted.
+The command relay uses a Vercel API function with temporary in-memory state. Keep the player page open before using the iPad controller.

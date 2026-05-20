@@ -4,6 +4,7 @@
   <meta charset="utf-8" />
   <title>Video Player Screen</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
+
   <style>
     html, body {
       margin: 0;
@@ -12,6 +13,7 @@
       background: black;
       overflow: hidden;
       font-family: Arial, sans-serif;
+      cursor: none;
     }
 
     #message {
@@ -21,9 +23,11 @@
       align-items: center;
       justify-content: center;
       font-size: 32px;
-      opacity: 0.45;
+      opacity: 0.65;
       text-align: center;
       padding: 40px;
+      line-height: 1.35;
+      cursor: pointer;
     }
 
     #titleOverlay {
@@ -50,19 +54,26 @@
     }
   </style>
 </head>
-<body>
-  <div id="message">Player ready. Waiting for iPad command.</div>
-  <div id="titleOverlay"></div>
-  <video id="videoPlayer" autoplay playsinline></video>
 
-  <script src="/socket.io/socket.io.js"></script>
+<body>
+  <div id="message">
+    Player ready.<br>
+    Click this screen once, then use the iPad.
+  </div>
+
+  <div id="titleOverlay"></div>
+  <video id="videoPlayer" playsinline preload="auto"></video>
+
   <script>
-    const socket = io();
     const videoPlayer = document.getElementById("videoPlayer");
     const message = document.getElementById("message");
     const titleOverlay = document.getElementById("titleOverlay");
 
+    const pageOpenedAt = Date.now();
+    let lastCommandId = null;
     let titleTimer = null;
+    let pollTimer = null;
+    let playerArmed = false;
 
     function clearTitleTimer() {
       if (titleTimer) {
@@ -82,7 +93,7 @@
       titleOverlay.textContent = "";
       titleOverlay.style.display = "none";
 
-      message.innerText = text || "";
+      message.innerHTML = text || "";
       message.style.display = "flex";
     }
 
@@ -110,27 +121,120 @@
       if (playPromise !== undefined) {
         playPromise.catch((error) => {
           console.error(error);
-          showMessage("Could not autoplay video. Click this player screen once, then try again from the iPad.");
+          message.style.display = "flex";
+          message.innerHTML = "Playback was blocked.<br>Click this laptop screen once, then press Resume on the iPad.";
         });
       }
     }
 
-    socket.on("connect", () => {
+    function armPlayer() {
+      playerArmed = true;
+
       if (!videoPlayer.src) {
-        message.innerText = "Player ready. Waiting for iPad command.";
+        message.innerHTML = "Player armed.<br>Waiting for iPad command.";
         message.style.display = "flex";
+      } else {
+        message.style.display = "none";
+        safelyPlayVideo();
       }
-    });
 
-    socket.on("disconnect", () => {
-      if (!videoPlayer.src) {
-        showMessage("Disconnected from controller server. Check Wi-Fi/server.");
+      startPolling();
+    }
+
+    document.body.addEventListener("click", armPlayer);
+
+    function startPolling() {
+      if (pollTimer) return;
+
+      pollForCommands();
+      pollTimer = setInterval(pollForCommands, 650);
+    }
+
+    async function pollForCommands() {
+      try {
+        const response = await fetch("/api/command?cacheBust=" + Date.now(), {
+          cache: "no-store"
+        });
+
+        if (!response.ok) {
+          throw new Error("Command check failed.");
+        }
+
+        const result = await response.json();
+
+        if (!result || !result.command) {
+          return;
+        }
+
+        const command = result.command;
+
+        if (!command.id || command.id === lastCommandId) {
+          return;
+        }
+
+        const commandTime = command.createdAt ? new Date(command.createdAt).getTime() : Date.now();
+
+        if (commandTime + 1000 < pageOpenedAt) {
+          lastCommandId = command.id;
+          return;
+        }
+
+        lastCommandId = command.id;
+        applyCommand(command);
+      } catch (error) {
+        console.error(error);
+
+        if (!videoPlayer.src) {
+          message.innerHTML = "Waiting for controller connection...";
+          message.style.display = "flex";
+        }
       }
-    });
+    }
 
-    socket.on("playVideo", (video) => {
+    function applyCommand(command) {
+      if (!command || !command.type) return;
+
+      if (command.type === "play") {
+        playVideo(command.video);
+        return;
+      }
+
+      if (command.type === "blank") {
+        showMessage("");
+        return;
+      }
+
+      if (command.type === "pause") {
+        if (!videoPlayer.src) return;
+        videoPlayer.pause();
+        return;
+      }
+
+      if (command.type === "resume") {
+        if (!videoPlayer.src) return;
+        message.style.display = "none";
+        videoPlayer.style.display = "block";
+        safelyPlayVideo();
+        return;
+      }
+
+      if (command.type === "reset") {
+        if (!videoPlayer.src) {
+          showMessage("No video loaded.<br>Choose a video from the iPad.");
+          return;
+        }
+
+        videoPlayer.pause();
+        videoPlayer.currentTime = 0;
+        message.style.display = "none";
+        videoPlayer.style.display = "block";
+        showVideoTitle("Reset to beginning");
+      }
+    }
+
+    function playVideo(video) {
       if (!video || !video.url) {
-        showMessage("Video command was missing a URL. Check videos.json.");
+        showMessage("Video command was missing a URL.<br>Check videos.json.");
         return;
       }
 
@@ -145,53 +249,22 @@
       videoPlayer.load();
 
       showVideoTitle(video.label || "");
-
       safelyPlayVideo();
-    });
-
-    socket.on("blankScreen", () => {
-      showMessage("");
-    });
-
-    socket.on("pauseVideo", () => {
-      if (!videoPlayer.src) {
-        return;
-      }
-
-      videoPlayer.pause();
-    });
-
-    socket.on("resumeVideo", () => {
-      if (!videoPlayer.src) {
-        return;
-      }
-
-      message.style.display = "none";
-      videoPlayer.style.display = "block";
-      safelyPlayVideo();
-    });
-
-    socket.on("resetVideo", () => {
-      if (!videoPlayer.src) {
-        showMessage("No video loaded. Choose a video from the iPad.");
-        return;
-      }
-
-      videoPlayer.currentTime = 0;
-      videoPlayer.pause();
-
-      message.style.display = "none";
-      videoPlayer.style.display = "block";
-      showVideoTitle("Reset to beginning");
-    });
+    }
 
     videoPlayer.addEventListener("ended", () => {
-      showMessage("Video ended. Waiting for iPad command.");
+      showMessage("Video ended.<br>Waiting for iPad command.");
     });
 
     videoPlayer.addEventListener("error", () => {
-      showMessage("Could not load video. Check the video file path in videos.json.");
+      showMessage("Could not load video.<br>Check the video file path in videos.json.");
     });
+
+    setTimeout(() => {
+      if (!playerArmed) {
+        startPolling();
+      }
+    }, 1000);
   </script>
 </body>
 </html>
