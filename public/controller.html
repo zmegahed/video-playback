@@ -67,11 +67,16 @@
       transform: scale(0.98);
     }
 
+    button:disabled {
+      opacity: 0.45;
+      cursor: not-allowed;
+    }
+
     .controls {
       max-width: 1000px;
       margin: 18px auto 0 auto;
       display: grid;
-      grid-template-columns: repeat(3, minmax(100px, 1fr));
+      grid-template-columns: repeat(4, minmax(100px, 1fr));
       gap: 16px;
     }
 
@@ -124,9 +129,10 @@
     <section class="grid" id="videoButtons"></section>
 
     <section class="controls">
-      <button class="secondary" onclick="pauseVideo()">Pause</button>
-      <button class="secondary" onclick="resumeVideo()">Resume</button>
-      <button class="danger" onclick="blankScreen()">Blank Screen</button>
+      <button class="secondary" type="button" onclick="pauseVideo()">Pause</button>
+      <button class="secondary" type="button" onclick="resumeVideo()">Resume</button>
+      <button class="secondary" type="button" onclick="resetVideo()">Reset</button>
+      <button class="danger" type="button" onclick="blankScreen()">Blank Screen</button>
     </section>
 
     <section class="help">
@@ -141,21 +147,56 @@
     const videoButtons = document.getElementById("videoButtons");
     const statusEl = document.getElementById("status");
 
+    socket.on("connect", () => {
+      statusEl.textContent = "Connected. Loading video buttons...";
+      loadVideos();
+    });
+
+    socket.on("disconnect", () => {
+      statusEl.textContent = "Disconnected from player server. Check Wi-Fi/server.";
+    });
+
     async function loadVideos() {
       try {
         const response = await fetch("/videos.json", { cache: "no-store" });
+
+        if (!response.ok) {
+          throw new Error(`videos.json failed to load. Status: ${response.status}`);
+        }
+
         const videos = await response.json();
+
+        if (!Array.isArray(videos)) {
+          throw new Error("videos.json must be an array.");
+        }
 
         videoButtons.innerHTML = "";
 
-        videos.forEach((video) => {
+        videos.forEach((video, index) => {
+          if (!video || typeof video !== "object") {
+            console.warn(`Skipping video item ${index}: item is not an object.`);
+            return;
+          }
+
+          if (!video.label || !video.url) {
+            console.warn(`Skipping video item ${index}: missing label or url.`);
+            return;
+          }
+
           const button = document.createElement("button");
+          button.type = "button";
           button.textContent = video.label;
           button.onclick = () => playVideo(video);
           videoButtons.appendChild(button);
         });
 
-        statusEl.textContent = `${videos.length} video button(s) ready.`;
+        const count = videoButtons.children.length;
+
+        if (count === 0) {
+          statusEl.textContent = "No valid videos found in videos.json.";
+        } else {
+          statusEl.textContent = `${count} video button(s) ready.`;
+        }
       } catch (error) {
         statusEl.textContent = "Could not load videos.json. Check the file formatting.";
         console.error(error);
@@ -163,8 +204,13 @@
     }
 
     function playVideo(video) {
+      if (!video || !video.url) {
+        statusEl.textContent = "Video is missing a URL.";
+        return;
+      }
+
       socket.emit("playVideo", video);
-      statusEl.textContent = `Playing: ${video.label}`;
+      statusEl.textContent = `Playing: ${video.label || "Untitled video"}`;
     }
 
     function blankScreen() {
@@ -182,7 +228,10 @@
       statusEl.textContent = "Resumed.";
     }
 
-    loadVideos();
+    function resetVideo() {
+      socket.emit("resetVideo");
+      statusEl.textContent = "Reset video to beginning.";
+    }
   </script>
 </body>
 </html>
