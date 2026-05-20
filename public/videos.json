@@ -1,14 +1,14 @@
 [
   {
-    "label": "Intro Video",
-    "url": "/videos/intro.mp4"
+    "label": "Arsenal",
+    "url": "/videos/arsenal.mp4"
   },
   {
-    "label": "Product Video",
-    "url": "/videos/product.mp4"
+    "label": "Salah",
+    "url": "/videos/salah.mp4"
   },
   {
-    "label": "Closing Video",
-    "url": "/videos/closing.mp4"
+    "label": "Henry",
+    "url": "/videos/henry.mp4"
   }
 ]
