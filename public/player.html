@@ -37,6 +37,8 @@
       font-size: 20px;
       display: none;
       z-index: 2;
+      max-width: calc(100vw - 48px);
+      overflow-wrap: break-word;
     }
 
     video {
@@ -60,25 +62,49 @@
     const message = document.getElementById("message");
     const titleOverlay = document.getElementById("titleOverlay");
 
+    let titleTimer = null;
+
+    function clearTitleTimer() {
+      if (titleTimer) {
+        clearTimeout(titleTimer);
+        titleTimer = null;
+      }
+    }
+
     function showMessage(text) {
+      clearTitleTimer();
+
       videoPlayer.pause();
       videoPlayer.removeAttribute("src");
       videoPlayer.load();
       videoPlayer.style.display = "none";
+
+      titleOverlay.textContent = "";
       titleOverlay.style.display = "none";
-      message.innerText = text;
+
+      message.innerText = text || "";
       message.style.display = "flex";
     }
 
-    socket.on("playVideo", (video) => {
-      message.style.display = "none";
-      videoPlayer.style.display = "block";
-      titleOverlay.textContent = video.label || "";
-      titleOverlay.style.display = video.label ? "block" : "none";
+    function showVideoTitle(label) {
+      clearTitleTimer();
 
-      videoPlayer.src = video.url;
-      videoPlayer.currentTime = 0;
+      if (!label) {
+        titleOverlay.textContent = "";
+        titleOverlay.style.display = "none";
+        return;
+      }
 
+      titleOverlay.textContent = label;
+      titleOverlay.style.display = "block";
+
+      titleTimer = setTimeout(() => {
+        titleOverlay.style.display = "none";
+        titleTimer = null;
+      }, 2500);
+    }
+
+    function safelyPlayVideo() {
       const playPromise = videoPlayer.play();
 
       if (playPromise !== undefined) {
@@ -87,10 +113,40 @@
           showMessage("Could not autoplay video. Click this player screen once, then try again from the iPad.");
         });
       }
+    }
 
-      setTimeout(() => {
-        titleOverlay.style.display = "none";
-      }, 2500);
+    socket.on("connect", () => {
+      if (!videoPlayer.src) {
+        message.innerText = "Player ready. Waiting for iPad command.";
+        message.style.display = "flex";
+      }
+    });
+
+    socket.on("disconnect", () => {
+      if (!videoPlayer.src) {
+        showMessage("Disconnected from controller server. Check Wi-Fi/server.");
+      }
+    });
+
+    socket.on("playVideo", (video) => {
+      if (!video || !video.url) {
+        showMessage("Video command was missing a URL. Check videos.json.");
+        return;
+      }
+
+      clearTitleTimer();
+
+      message.style.display = "none";
+      videoPlayer.style.display = "block";
+
+      videoPlayer.pause();
+      videoPlayer.src = video.url;
+      videoPlayer.currentTime = 0;
+      videoPlayer.load();
+
+      showVideoTitle(video.label || "");
+
+      safelyPlayVideo();
     });
 
     socket.on("blankScreen", () => {
@@ -98,11 +154,43 @@
     });
 
     socket.on("pauseVideo", () => {
+      if (!videoPlayer.src) {
+        return;
+      }
+
       videoPlayer.pause();
     });
 
     socket.on("resumeVideo", () => {
-      videoPlayer.play();
+      if (!videoPlayer.src) {
+        return;
+      }
+
+      message.style.display = "none";
+      videoPlayer.style.display = "block";
+      safelyPlayVideo();
+    });
+
+    socket.on("resetVideo", () => {
+      if (!videoPlayer.src) {
+        showMessage("No video loaded. Choose a video from the iPad.");
+        return;
+      }
+
+      videoPlayer.currentTime = 0;
+      videoPlayer.pause();
+
+      message.style.display = "none";
+      videoPlayer.style.display = "block";
+      showVideoTitle("Reset to beginning");
+    });
+
+    videoPlayer.addEventListener("ended", () => {
+      showMessage("Video ended. Waiting for iPad command.");
+    });
+
+    videoPlayer.addEventListener("error", () => {
+      showMessage("Could not load video. Check the video file path in videos.json.");
     });
   </script>
 </body>
