@@ -1,14 +1,14 @@
 [
   {
-    "label": "Intro Video",
-    "url": "https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4"
+    "label": "Big Buck Bunny",
+    "url": "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4"
   },
   {
-    "label": "Product Video",
-    "url": "https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4"
+    "label": "Sintel",
+    "url": "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/Sintel.mp4"
   },
   {
-    "label": "Closing Video",
-    "url": "https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4"
+    "label": "Tears of Steel",
+    "url": "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/TearsOfSteel.mp4"
   }
 ]
