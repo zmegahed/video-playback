@@ -1,0 +1,109 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Video Player Screen</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    html, body {
+      margin: 0;
+      width: 100%;
+      height: 100%;
+      background: black;
+      overflow: hidden;
+      font-family: Arial, sans-serif;
+    }
+
+    #message {
+      color: white;
+      height: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 32px;
+      opacity: 0.45;
+      text-align: center;
+      padding: 40px;
+    }
+
+    #titleOverlay {
+      position: fixed;
+      left: 24px;
+      bottom: 24px;
+      color: white;
+      background: rgba(0,0,0,0.55);
+      padding: 12px 16px;
+      border-radius: 12px;
+      font-size: 20px;
+      display: none;
+      z-index: 2;
+    }
+
+    video {
+      width: 100vw;
+      height: 100vh;
+      object-fit: contain;
+      background: black;
+      display: none;
+    }
+  </style>
+</head>
+<body>
+  <div id="message">Player ready. Waiting for iPad command.</div>
+  <div id="titleOverlay"></div>
+  <video id="videoPlayer" autoplay playsinline></video>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script>
+    const socket = io();
+    const videoPlayer = document.getElementById("videoPlayer");
+    const message = document.getElementById("message");
+    const titleOverlay = document.getElementById("titleOverlay");
+
+    function showMessage(text) {
+      videoPlayer.pause();
+      videoPlayer.removeAttribute("src");
+      videoPlayer.load();
+      videoPlayer.style.display = "none";
+      titleOverlay.style.display = "none";
+      message.innerText = text;
+      message.style.display = "flex";
+    }
+
+    socket.on("playVideo", (video) => {
+      message.style.display = "none";
+      videoPlayer.style.display = "block";
+      titleOverlay.textContent = video.label || "";
+      titleOverlay.style.display = video.label ? "block" : "none";
+
+      videoPlayer.src = video.url;
+      videoPlayer.currentTime = 0;
+
+      const playPromise = videoPlayer.play();
+
+      if (playPromise !== undefined) {
+        playPromise.catch((error) => {
+          console.error(error);
+          showMessage("Could not autoplay video. Click this player screen once, then try again from the iPad.");
+        });
+      }
+
+      setTimeout(() => {
+        titleOverlay.style.display = "none";
+      }, 2500);
+    });
+
+    socket.on("blankScreen", () => {
+      showMessage("");
+    });
+
+    socket.on("pauseVideo", () => {
+      videoPlayer.pause();
+    });
+
+    socket.on("resumeVideo", () => {
+      videoPlayer.play();
+    });
+  </script>
+</body>
+</html>

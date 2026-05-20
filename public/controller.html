@@ -1,0 +1,188 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>iPad Video Controller</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    :root {
+      --bg: #111111;
+      --card: #1b1b1b;
+      --button: #2f80ed;
+      --button-dark: #444444;
+      --danger: #c0392b;
+      --text: #ffffff;
+      --muted: #bbbbbb;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      padding: 24px;
+    }
+
+    header {
+      max-width: 1000px;
+      margin: 0 auto 24px auto;
+    }
+
+    h1 {
+      margin: 0 0 8px 0;
+      font-size: 34px;
+    }
+
+    .status {
+      color: var(--muted);
+      font-size: 16px;
+    }
+
+    .grid {
+      max-width: 1000px;
+      margin: 0 auto;
+      display: grid;
+      grid-template-columns: repeat(2, minmax(130px, 1fr));
+      gap: 16px;
+    }
+
+    button {
+      font-size: 24px;
+      font-weight: bold;
+      padding: 28px 20px;
+      border: 0;
+      border-radius: 18px;
+      background: var(--button);
+      color: var(--text);
+      cursor: pointer;
+      min-height: 96px;
+      box-shadow: 0 8px 20px rgba(0,0,0,0.25);
+    }
+
+    button:active {
+      transform: scale(0.98);
+    }
+
+    .controls {
+      max-width: 1000px;
+      margin: 18px auto 0 auto;
+      display: grid;
+      grid-template-columns: repeat(3, minmax(100px, 1fr));
+      gap: 16px;
+    }
+
+    .secondary {
+      background: var(--button-dark);
+      font-size: 21px;
+      min-height: 76px;
+    }
+
+    .danger {
+      background: var(--danger);
+      font-size: 21px;
+      min-height: 76px;
+    }
+
+    .help {
+      max-width: 1000px;
+      margin: 24px auto 0 auto;
+      color: var(--muted);
+      font-size: 16px;
+      line-height: 1.5;
+      background: var(--card);
+      padding: 16px;
+      border-radius: 14px;
+    }
+
+    @media (max-width: 700px) {
+      body {
+        padding: 16px;
+      }
+
+      .grid,
+      .controls {
+        grid-template-columns: 1fr;
+      }
+
+      button {
+        font-size: 22px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Video Controller</h1>
+    <div class="status" id="status">Loading video buttons...</div>
+  </header>
+
+  <main>
+    <section class="grid" id="videoButtons"></section>
+
+    <section class="controls">
+      <button class="secondary" onclick="pauseVideo()">Pause</button>
+      <button class="secondary" onclick="resumeVideo()">Resume</button>
+      <button class="danger" onclick="blankScreen()">Blank Screen</button>
+    </section>
+
+    <section class="help">
+      Open <strong>player.html</strong> on the laptop screen. Open this page on the iPad.
+      Buttons are loaded from <strong>videos.json</strong>.
+    </section>
+  </main>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script>
+    const socket = io();
+    const videoButtons = document.getElementById("videoButtons");
+    const statusEl = document.getElementById("status");
+
+    async function loadVideos() {
+      try {
+        const response = await fetch("/videos.json", { cache: "no-store" });
+        const videos = await response.json();
+
+        videoButtons.innerHTML = "";
+
+        videos.forEach((video) => {
+          const button = document.createElement("button");
+          button.textContent = video.label;
+          button.onclick = () => playVideo(video);
+          videoButtons.appendChild(button);
+        });
+
+        statusEl.textContent = `${videos.length} video button(s) ready.`;
+      } catch (error) {
+        statusEl.textContent = "Could not load videos.json. Check the file formatting.";
+        console.error(error);
+      }
+    }
+
+    function playVideo(video) {
+      socket.emit("playVideo", video);
+      statusEl.textContent = `Playing: ${video.label}`;
+    }
+
+    function blankScreen() {
+      socket.emit("blankScreen");
+      statusEl.textContent = "Screen blanked.";
+    }
+
+    function pauseVideo() {
+      socket.emit("pauseVideo");
+      statusEl.textContent = "Paused.";
+    }
+
+    function resumeVideo() {
+      socket.emit("resumeVideo");
+      statusEl.textContent = "Resumed.";
+    }
+
+    loadVideos();
+  </script>
+</body>
+</html>
